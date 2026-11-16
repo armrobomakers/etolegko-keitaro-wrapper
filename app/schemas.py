@@ -39,6 +39,11 @@ class CampaignCreateInput(BaseModel):
         return result
 
 
+class LoginInput(BaseModel):
+    username: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=1, max_length=1024)
+
+
 class OfferCommitInput(BaseModel):
     offer_ids: list[int] = Field(min_length=1, max_length=1000)
     expected_version: str = Field(min_length=16, max_length=64)

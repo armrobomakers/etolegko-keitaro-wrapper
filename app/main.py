@@ -1,32 +1,61 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.auth import SESSION_COOKIE_NAME, create_session_token, credentials_match, is_valid_session, origin_matches_host
 from app.config import Settings, get_settings
 from app.db import SessionLocal
 from app.keitaro import KeitaroClient, KeitaroError, as_list
 from app.models import Operation
-from app.schemas import CampaignCreateInput, CampaignView, OfferCommitInput, StreamView
+from app.schemas import CampaignCreateInput, CampaignView, LoginInput, OfferCommitInput, StreamView
 from app.services import create_campaign, offer_signature, previous_idempotent_result, update_stream_offers
 
 ROOT = Path(__file__).resolve().parent
 app = FastAPI(title="Keitaro Wrapper", version="0.1.0")
-app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
+app.mount("/static", StaticFiles(directory=ROOT.parent / "public" / "static"), name="static")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
 
 
+@app.middleware("http")
+async def require_app_auth(request: Request, call_next):
+    settings = get_settings()
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        origin = request.headers.get("origin")
+        if not origin or not origin_matches_host(origin, request.headers.get("host", "")):
+            return JSONResponse({"detail": "Недопустимый источник запроса"}, status_code=403)
+
+    path = request.url.path
+    if path == "/login" or path.startswith("/static/"):
+        return await call_next(request)
+
+    if not settings.app_auth_configured:
+        if path.startswith("/api/") or path in {"/docs", "/redoc", "/openapi.json"}:
+            return JSONResponse({"detail": "Аутентификация приложения не настроена"}, status_code=503)
+        return RedirectResponse("/login?setup=required", status_code=303)
+
+    if not is_valid_session(settings, request.cookies.get(SESSION_COOKIE_NAME)):
+        if path.startswith("/api/") or path in {"/docs", "/redoc", "/openapi.json"}:
+            return JSONResponse({"detail": "Требуется вход"}, status_code=401)
+        return RedirectResponse("/login", status_code=303)
+
+    return await call_next(request)
+
+
 def get_db() -> Generator[Session, None, None]:
+    if os.getenv("VERCEL", "").strip() == "1" and not get_settings().database_is_postgres:
+        raise HTTPException(status_code=503, detail="Для Vercel требуется PostgreSQL в DATABASE_URL или POSTGRES_URL")
     db = SessionLocal()
     try:
         yield db
@@ -65,6 +94,49 @@ def _safe_api_error(exc: KeitaroError) -> HTTPException:
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request=request, name="index.html", context={})
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request) -> HTMLResponse:
+    settings = get_settings()
+    if is_valid_session(settings, request.cookies.get(SESSION_COOKIE_NAME)):
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"auth_configured": settings.app_auth_configured},
+    )
+
+
+@app.post("/login")
+def login(body: LoginInput, response: Response, settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    if not settings.app_auth_configured:
+        raise HTTPException(status_code=503, detail="Аутентификация приложения не настроена")
+    if not credentials_match(settings, body.username, body.password):
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=create_session_token(settings),
+        max_age=settings.app_session_ttl_seconds,
+        httponly=True,
+        secure=settings.app_cookie_secure,
+        samesite="strict",
+        path="/",
+    )
+    return {"ok": True, "redirect": "/"}
+
+
+@app.post("/logout")
+def logout(settings: Settings = Depends(get_settings)) -> RedirectResponse:
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        secure=settings.app_cookie_secure,
+        httponly=True,
+        samesite="strict",
+    )
+    return response
 
 
 @app.get("/api/health")
