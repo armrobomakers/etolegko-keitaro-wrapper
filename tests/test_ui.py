@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -8,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.config import Settings, get_settings
 from app.db import Base
-from app.main import app, get_db, get_keitaro
+from app.main import _mount_static_if_available, app, get_db, get_keitaro
 from tests.test_services import FakeKeitaro
 
 AUTH_USERNAME = "test-admin"
@@ -141,6 +142,25 @@ def test_home_page_and_static_assets_are_served(authenticated_client) -> None:
     assert script.status_code == 200 and "Idempotency-Key" in script.text
     assert css.status_code == 200 and ".offer-table" in css.text
     assert editor_css.status_code == 200 and ".stream-card" in editor_css.text
+
+
+def test_static_mount_is_optional_when_assets_are_not_in_function_bundle(tmp_path) -> None:
+    application = FastAPI()
+    missing_directory = tmp_path / "public" / "static"
+
+    _mount_static_if_available(application, missing_directory)
+
+    assert not any(getattr(route, "path", None) == "/static" for route in application.routes)
+
+
+def test_static_mount_is_created_when_assets_exist(tmp_path) -> None:
+    application = FastAPI()
+    static_directory = tmp_path / "static"
+    static_directory.mkdir()
+
+    _mount_static_if_available(application, static_directory)
+
+    assert any(getattr(route, "path", None) == "/static" for route in application.routes)
 
 
 def test_health_never_returns_keitaro_secret(authenticated_client) -> None:

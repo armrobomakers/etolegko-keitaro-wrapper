@@ -24,7 +24,16 @@ from app.services import create_campaign, offer_signature, previous_idempotent_r
 
 ROOT = Path(__file__).resolve().parent
 app = FastAPI(title="Keitaro Wrapper", version="0.1.0")
-app.mount("/static", StaticFiles(directory=ROOT.parent / "public" / "static"), name="static")
+
+
+def _mount_static_if_available(application: FastAPI, directory: Path) -> None:
+    # Vercel serves files under public/ from its CDN and does not include them
+    # in the Python function bundle. Keep the mount for local development only.
+    if directory.is_dir():
+        application.mount("/static", StaticFiles(directory=directory), name="static")
+
+
+_mount_static_if_available(app, ROOT.parent / "public" / "static")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
 
 
