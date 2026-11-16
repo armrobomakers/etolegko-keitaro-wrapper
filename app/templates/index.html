@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keitaro Wrapper</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/autocomplete.css">
+  <link rel="stylesheet" href="/static/editor.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark">K</div>
+    <div><strong>Keitaro Wrapper</strong><span>создание кампаний и редактор офферов</span></div>
+    <div id="health" class="health">Проверяем подключение…</div>
+  </header>
+  <main class="layout">
+    <section class="panel">
+      <div class="section-heading"><div><p class="eyebrow">01 · CAMPAIGNS</p><h1>Новая кампания</h1></div></div>
+      <p class="muted">Кампания создаётся выключенной, затем добавляются оба потока и только после проверки она включается.</p>
+      <form id="campaign-form" class="form-grid">
+        <label class="wide">Название кампании<input name="name" maxlength="120" placeholder="Например, Summer test" required></label>
+        <label>GEO-коды стран<input name="country_codes" id="geo-codes" placeholder="MX, AU, RO" autocomplete="off" required><span class="field-hint">Можно указать несколько кодов через запятую.</span></label>
+        <label>Оффер<div class="autocomplete"><input id="create-offer" placeholder="Начните вводить название или ID" autocomplete="off" required><div id="offer-options" class="suggestion-list hidden"></div></div><span class="field-hint">Выберите подсказку — в запрос попадёт ID оффера.</span></label>
+        <label>Домен<select name="domain_id" id="domain-select" required><option value="">Загрузка…</option></select></label>
+        <label>Группа кампаний<select name="group_id" id="group-select" required><option value="">Загрузка…</option></select></label>
+        <label class="wide">Источник трафика<select name="traffic_source_id" id="source-select" required><option value="">Загрузка…</option></select></label>
+        <div class="wide form-foot"><span class="muted">В Keitaro имя получит префикс <code id="prefix">test_ryzhkov_</code></span><button class="primary" type="submit">Создать кампанию</button></div>
+      </form>
+      <div id="create-result" class="notice hidden" aria-live="polite"></div>
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><p class="eyebrow">02 · OFFER EDITOR</p><h2>Редактор потоков кампании</h2></div></div>
+      <p class="muted">Добавление и удаление сначала меняют черновик. `PUSH TO KT` сохраняет его в Keitaro, `CANCEL` отменяет. Удалённый оффер виден с долей 0% и может быть возвращён до сохранения.</p>
+      <div class="editor-toolbar">
+        <label>Кампания<select id="campaign-select"><option value="">Выберите кампанию</option></select></label>
+        <button id="fetch-streams" class="secondary" type="button">FETCH STREAMS FROM KT</button>
+        <a id="view-in-keitaro" class="secondary disabled-link" target="_blank" rel="noopener noreferrer">VIEW IN KT</a>
+        <button id="toggle-offers" class="secondary" type="button">SHOW ALL OFFERS</button>
+      </div>
+      <div id="offer-library" class="offer-library hidden"><input id="offer-search" placeholder="Фильтр офферов по названию или ID"><div id="offer-library-list"></div></div>
+      <div id="stream-panel" class="stream-panel muted">Выберите кампанию, затем загрузите её потоки.</div>
+    </section>
+    <section class="panel history-panel">
+      <div class="section-heading"><div><p class="eyebrow">AUDIT</p><h2>Последние операции</h2></div></div>
+      <div id="operations" class="operations muted">Операции появятся после первого действия.</div>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
