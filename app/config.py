@@ -7,6 +7,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
+def _normalize_campaign_prefix(value: str) -> str:
+    # Vercel values may accidentally contain literal escaped newlines ("\\n")
+    # as well as actual line breaks; neither belongs in a campaign alias.
+    for marker in ("\\r\\n", "\\n", "\\r", "\r", "\n"):
+        value = value.replace(marker, "")
+    return value.strip()
+
+
 @dataclass(frozen=True)
 class Settings:
     keitaro_base_url: str
@@ -64,7 +72,7 @@ def get_settings() -> Settings:
         keitaro_base_url=base_url,
         keitaro_api_key=os.getenv("KEITARO_API_KEY", "").strip(),
         database_url=database_url,
-        campaign_prefix=os.getenv("CAMPAIGN_PREFIX", "test_ryzhkov_").strip(),
+        campaign_prefix=_normalize_campaign_prefix(os.getenv("CAMPAIGN_PREFIX", "test_ryzhkov_")),
         redirect_action=os.getenv("KEITARO_REDIRECT_ACTION", "").strip(),
         app_username=os.getenv("APP_USERNAME", "").strip(),
         app_password=os.getenv("APP_PASSWORD", ""),
