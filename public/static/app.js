@@ -204,9 +204,9 @@ $("#campaign-form").addEventListener("submit", async (event) => {
   if (!selectedOffer) { toast("Выберите оффер из подсказок по названию или ID", true); return; }
   body.offer_id = Number(selectedOffer.id);
   for (const key of ["domain_id", "group_id", "traffic_source_id"]) body[key] = Number(body[key]);
-  if (!window.confirm(`Создать в подключённом Keitaro тестовую кампанию «${body.name}» с выбранными доменом, группой, источником, GEO-потоком и оффером?`)) return;
+  if (!window.confirm(`Создать и включить в Keitaro кампанию «${body.name}» с выбранными доменом, группой, источником, GEO-потоком и оффером? После создания она может получать реальный трафик.`)) return;
   state.busy = true; button.disabled = true; result.className = "notice";
-  result.textContent = "Создаём выключенную кампанию и проверяем оба потока…";
+  result.textContent = "Создаём кампанию, добавляем два потока и затем включаем её…";
   try {
     const created = await api("/api/campaigns", { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify(body) });
     result.className = "notice";

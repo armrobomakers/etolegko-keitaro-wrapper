@@ -138,8 +138,10 @@ def test_home_page_and_static_assets_are_served(authenticated_client) -> None:
     editor_css = authenticated_client.get("/static/editor.css")
     assert page.status_code == 200
     assert "Новая кампания" in page.text
+    assert "Она может начать получать реальный трафик" in page.text
     assert "Выйти" in page.text
     assert script.status_code == 200 and "Idempotency-Key" in script.text
+    assert "После создания она может получать реальный трафик" in script.text
     assert css.status_code == 200 and ".offer-table" in css.text
     assert editor_css.status_code == 200 and ".stream-card" in editor_css.text
 
